@@ -3,15 +3,36 @@ import { Alert, ScrollView, Text, View } from 'react-native';
 
 import { styles } from './styles';
 import { dataSource } from '../../database';
+import { ProductEntity } from '../../database/entities/ProductEntity';
 
 import { Input } from '../../components/Input';
 import { Button } from '../../components/Button';
 import { Product } from '../../components/Product';
-import { ProductEntity } from '../../database/entities/ProductEntity';
 
 export function Home() {
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
+  const [products, setProducts] = useState<ProductEntity[]>([]);
+
+  async function handleRemove(product: ProductEntity){
+    Alert.alert(
+      'Remover',
+      `Remover ${product.name}`,
+      [
+        {text: 'Não', style: 'cancel'},
+        {text: 'Sim', onPress: async () => {
+          await dataSource.manager.remove(product);
+          loadProducts();
+        }}
+      ]
+    )
+  }
+
+  async function loadProducts(){
+    const productRepository = dataSource.getRepository(ProductEntity);
+    const products = await productRepository.find();
+    setProducts(products);
+  }
 
   async function handleAdd(){
     if(!name.trim() || !quantity.trim()){
@@ -24,12 +45,14 @@ export function Home() {
 
     await dataSource.manager.save(product);
     Alert.alert(`Produto salvo com ID ${product.id}`);
+    loadProducts();
   }
 
   useEffect(() => {
     const connect = async () => {
       if(!dataSource.isInitialized){
         await dataSource.initialize();
+        loadProducts();
       }
     }
 
@@ -62,7 +85,7 @@ export function Home() {
 
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Itens</Text>
-        <Text style={styles.headerQuantity}>5</Text>
+        <Text style={styles.headerQuantity}>{products.length}</Text>
       </View>
 
       <ScrollView
@@ -70,16 +93,16 @@ export function Home() {
         contentContainerStyle={styles.items}
         showsVerticalScrollIndicator={false}
       >
-        <Product
-          name="Produto A"
-          quantity={3}
-          onRemove={() => { }}
-        />
-        <Product
-          name="Produto B"
-          quantity={2}
-          onRemove={() => { }}
-        />
+        {
+          products.map((product) => (
+            <Product
+              key={product.id}
+              name={product.name}
+              quantity={product.quantity}
+              onRemove={() => handleRemove(product)}
+            />
+          ))
+        }
       </ScrollView>
     </View>
   );
